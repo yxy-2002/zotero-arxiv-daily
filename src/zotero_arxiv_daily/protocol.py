@@ -47,7 +47,11 @@ class Paper:
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are an assistant who perfectly summarizes scientific paper, and gives the core idea of the paper to the user. Your answer should be in {lang}.",
+                    "content": (
+                                "You are an assistant specialized in summarizing scientific papers. "
+                                "Always answer in Simplified Chinese. "
+                                "Be accurate, concise, and avoid hype."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -79,7 +83,11 @@ class Paper:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an assistant who perfectly extracts affiliations of authors from a paper. You should return a python list of affiliations sorted by the author order, like [\"TsingHua University\",\"Peking University\"]. If an affiliation is consisted of multi-level affiliations, like 'Department of Computer Science, TsingHua University', you should return the top-level affiliation 'TsingHua University' only. Do not contain duplicated affiliations. If there is no affiliation found, you should return an empty list [ ]. You should only return the final list of affiliations, and do not return any intermediate results.",
+                        "content": (
+                                "You are an assistant specialized in extracting author affiliations from academic papers. "
+                                "Always answer in valid Python list format. "
+                                "Return only the final list and nothing else."
+                        ),
                     },
                     {"role": "user", "content": prompt},
                 ],
