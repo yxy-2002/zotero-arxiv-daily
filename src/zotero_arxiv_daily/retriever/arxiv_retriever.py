@@ -30,7 +30,6 @@ class ArxivRetriever(BaseRetriever):
         query = '+'.join(self.config.source.arxiv.category)
         include_cross_list = self.config.source.arxiv.get("include_cross_list", False)
 
-        # Get the latest papers from arXiv RSS feed.
         feed = feedparser.parse(f"https://rss.arxiv.org/atom/{query}")
         if 'Feed error for query' in feed.feed.title:
             raise Exception(f"Invalid ARXIV_QUERY: {query}.")
@@ -53,7 +52,6 @@ class ArxivRetriever(BaseRetriever):
             )
             time.sleep(ARXIV_INITIAL_DELAY_SECONDS)
 
-        # Get full information from arXiv API in larger batches to reduce requests.
         bar = tqdm(total=len(all_paper_ids))
         for i in range(0, len(all_paper_ids), ARXIV_BATCH_SIZE):
             id_batch = all_paper_ids[i:i + ARXIV_BATCH_SIZE]
@@ -86,6 +84,7 @@ class ArxivRetriever(BaseRetriever):
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
 
+        full_text = None
         try:
             with ThreadPoolExecutor(max_workers=1) as pool:
                 full_text = pool.submit(extract_text_from_pdf, raw_paper).result(
@@ -93,10 +92,17 @@ class ArxivRetriever(BaseRetriever):
                 )
         except TimeoutError:
             logger.warning(f"PDF extraction timed out for {raw_paper.title}")
-            full_text = None
+        except Exception as e:
+            logger.warning(f"Failed to extract full text of {raw_paper.title} from pdf: {e}")
 
         if full_text is None:
-            full_text = extract_text_from_tar(raw_paper)
+            try:
+                full_text = extract_text_from_tar(raw_paper)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to extract full text of {raw_paper.title} from tar fallback: {e}"
+                )
+                full_text = None
 
         return Paper(
             source=self.name,
@@ -117,7 +123,11 @@ def extract_text_from_pdf(paper: ArxivResult) -> str | None:
             logger.warning(f"No PDF URL available for {paper.title}")
             return None
 
-        urlretrieve(paper.pdf_url, path)
+        try:
+            urlretrieve(paper.pdf_url, path)
+        except Exception as e:
+            logger.warning(f"Failed to download PDF of {paper.title}: {e}")
+            return None
 
         try:
             full_text = extract_markdown_from_pdf(path)
@@ -137,7 +147,11 @@ def extract_text_from_tar(paper: ArxivResult) -> str | None:
             logger.warning(f"No source URL available for {paper.title}")
             return None
 
-        urlretrieve(source_url, path)
+        try:
+            urlretrieve(source_url, path)
+        except Exception as e:
+            logger.warning(f"Failed to download source tar of {paper.title}: {e}")
+            return None
 
         try:
             file_contents = extract_tex_code_from_tar(path, paper.entry_id)
